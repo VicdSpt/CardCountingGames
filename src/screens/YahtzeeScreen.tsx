@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  SafeAreaView, TextInput, Modal, Alert,
+  SafeAreaView, TextInput, Modal, Alert, Platform,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, typography } from '../theme';
+import { colors, spacing, radius, typography, shadow } from '../theme';
 import { Button } from '../components/Button';
 import { useGameStore, Player } from '../store/gameStore';
 import {
@@ -40,9 +40,8 @@ export function YahtzeeScreen() {
   const [showScoreboard, setShowScoreboard] = useState(false);
 
   useEffect(() => {
-    if (isNew && initPlayers) {
-      setState(initState(initPlayers));
-    } else {
+    if (isNew && initPlayers) setState(initState(initPlayers));
+    else {
       const saved = savedGames.find((g) => g.id === gameId);
       if (saved) setState(saved.state as YahtzeeState);
     }
@@ -50,11 +49,9 @@ export function YahtzeeScreen() {
 
   const persist = useCallback(async (newState: YahtzeeState) => {
     await saveGame({
-      id: gameId,
-      gameType: 'yahtzee',
+      id: gameId, gameType: 'yahtzee',
       players: newState.players,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
+      createdAt: Date.now(), updatedAt: Date.now(),
       state: newState,
     });
   }, [gameId, saveGame]);
@@ -72,7 +69,7 @@ export function YahtzeeScreen() {
 
   const undo = () => {
     setState((prev) => {
-      if (!prev || !prev.history || prev.history.length === 0) return prev;
+      if (!prev || !prev.history?.length) return prev;
       const history = [...prev.history];
       const last = history.pop()!;
       last.history = history;
@@ -82,9 +79,7 @@ export function YahtzeeScreen() {
   };
 
   const openEdit = (playerId: string, cat: YahtzeeCategory) => {
-    if (!state) return;
-    // Fixed-score categories are handled inline, no modal needed
-    if (FIXED_SCORES[cat] !== undefined) return;
+    if (!state || FIXED_SCORES[cat] !== undefined) return;
     const current = state.scores[playerId][cat];
     setEditValue(current !== undefined && current >= 0 ? String(current) : '');
     setEditCell({ playerId, cat });
@@ -94,14 +89,9 @@ export function YahtzeeScreen() {
     updateState((s) => {
       const fixed = FIXED_SCORES[cat]!;
       const current = s.scores[playerId][cat];
-      // Toggle: if already set to same value, clear it
-      if (success && current === fixed) {
-        delete s.scores[playerId][cat];
-      } else if (!success && current === -1) {
-        delete s.scores[playerId][cat];
-      } else {
-        s.scores[playerId][cat] = success ? fixed : -1;
-      }
+      if (success && current === fixed) delete s.scores[playerId][cat];
+      else if (!success && current === -1) delete s.scores[playerId][cat];
+      else s.scores[playerId][cat] = success ? fixed : -1;
       return s;
     });
   };
@@ -111,35 +101,27 @@ export function YahtzeeScreen() {
     const { playerId, cat } = editCell;
     const numStr = editValue.trim();
     if (numStr === '') {
-      updateState((s) => {
-        delete s.scores[playerId][cat];
-        return s;
-      });
+      updateState((s) => { delete s.scores[playerId][cat]; return s; });
     } else {
       const num = parseInt(numStr, 10);
       if (isNaN(num) || num < 0) {
-        Alert.alert('Valeur invalide', 'Entrez un nombre positif ou laissez vide pour effacer.');
+        if (Platform.OS === 'web') window.alert('Entrez un nombre positif ou laissez vide.');
+        else Alert.alert('Valeur invalide', 'Entrez un nombre positif ou laissez vide pour effacer.');
         return;
       }
-      updateState((s) => {
-        s.scores[playerId][cat] = num;
-        return s;
-      });
+      updateState((s) => { s.scores[playerId][cat] = num; return s; });
     }
     setEditCell(null);
   };
 
-  const isFinished = (scores: YahtzeeScores): boolean => {
-    return [...UPPER_CATEGORIES, ...LOWER_CATEGORIES].every((cat) => scores[cat] !== undefined);
-  };
+  const isFinished = (scores: YahtzeeScores): boolean =>
+    [...UPPER_CATEGORIES, ...LOWER_CATEGORIES].every((cat) => scores[cat] !== undefined);
 
-  if (!state) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <Text style={{ color: colors.text, padding: spacing.md }}>Chargement...</Text>
-      </SafeAreaView>
-    );
-  }
+  if (!state) return (
+    <SafeAreaView style={styles.safe}>
+      <Text style={[typography.body, { color: colors.textSecondary, padding: spacing.md }]}>Chargement…</Text>
+    </SafeAreaView>
+  );
 
   const allFinished = state.players.every((p) => isFinished(state.scores[p.id]));
 
@@ -147,84 +129,60 @@ export function YahtzeeScreen() {
     <SafeAreaView style={styles.safe}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={20} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Yahtzee</Text>
-        <View style={styles.headerActions}>
+        <View style={styles.headerRight}>
           <TouchableOpacity
             onPress={undo}
-            style={[styles.iconBtn, { opacity: state.history?.length ? 1 : 0.3 }]}
+            style={[styles.iconBtn, !state.history?.length && { opacity: 0.25 }]}
             disabled={!state.history?.length}
+            activeOpacity={0.7}
           >
-            <Ionicons name="arrow-undo" size={22} color={colors.text} />
+            <Ionicons name="arrow-undo-outline" size={20} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setShowScoreboard(true)} style={styles.iconBtn}>
-            <Ionicons name="trophy-outline" size={22} color={colors.gold} />
+          <TouchableOpacity onPress={() => setShowScoreboard(true)} style={styles.iconBtn} activeOpacity={0.7}>
+            <Ionicons name="bar-chart-outline" size={20} color={colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Player columns header */}
-        <View style={styles.tableHeader}>
-          <Text style={[styles.catLabel, styles.catLabelHeader]}>Catégorie</Text>
+        {/* Player header */}
+        <View style={[styles.tableHeader, shadow.sm]}>
+          <Text style={[styles.catCol, styles.thLabel]}>Catégorie</Text>
           {state.players.map((p, idx) => (
-            <View key={p.id} style={styles.playerCol}>
-              <Text style={[styles.playerColName, { color: getPlayerColor(idx) }]} numberOfLines={1}>
-                {p.name}
-              </Text>
+            <View key={p.id} style={styles.scoreCol}>
+              <View style={[styles.playerInitial, { borderColor: getPlayerColor(idx) + '50', backgroundColor: getPlayerColor(idx) + '12' }]}>
+                <Text style={[styles.playerInitialText, { color: getPlayerColor(idx) }]}>{p.name.charAt(0).toUpperCase()}</Text>
+              </View>
+              <Text style={[styles.playerColName, { color: getPlayerColor(idx) }]} numberOfLines={1}>{p.name}</Text>
             </View>
           ))}
         </View>
 
         {/* Upper section */}
-        <SectionHeader title="Section haute" subtitle={`Bonus +${UPPER_BONUS} si ≥ ${UPPER_BONUS_THRESHOLD}`} color={colors.gold} />
+        <SectionHeader title="Section haute" right={`Bonus +${UPPER_BONUS} si ≥ ${UPPER_BONUS_THRESHOLD}`} />
         {UPPER_CATEGORIES.map((cat) => (
-          <CategoryRow
-            key={cat}
-            cat={cat}
-            players={state.players}
-            scores={state.scores}
-            onPress={openEdit}
-          />
+          <CategoryRow key={cat} cat={cat} players={state.players} scores={state.scores} onPress={openEdit} onFixedScore={setFixedScore} />
         ))}
-        {/* Upper subtotal + bonus */}
-        <SubtotalRow label="Sous-total haut" players={state.players} getValue={(p) => calcYahtzeeUpperTotal(state.scores[p.id])} />
-        <SubtotalRow
-          label={`Bonus (≥${UPPER_BONUS_THRESHOLD})`}
-          players={state.players}
-          getValue={(p) => calcYahtzeeBonus(state.scores[p.id])}
-          color={colors.gold}
-        />
+        <TotalRow label="Sous-total" players={state.players} getValue={(p) => calcYahtzeeUpperTotal(state.scores[p.id])} />
+        <TotalRow label={`Bonus +${UPPER_BONUS}`} players={state.players} getValue={(p) => calcYahtzeeBonus(state.scores[p.id])} highlight />
 
         {/* Lower section */}
-        <SectionHeader title="Section basse" color={colors.accentSoft} />
+        <SectionHeader title="Section basse" />
         {LOWER_CATEGORIES.map((cat) => (
-          <CategoryRow
-            key={cat}
-            cat={cat}
-            players={state.players}
-            scores={state.scores}
-            onPress={openEdit}
-            onFixedScore={setFixedScore}
-            fixedScore={FIXED_SCORES[cat]}
-          />
+          <CategoryRow key={cat} cat={cat} players={state.players} scores={state.scores} onPress={openEdit} onFixedScore={setFixedScore} fixedScore={FIXED_SCORES[cat]} />
         ))}
 
         {/* Grand total */}
-        <SubtotalRow
-          label="TOTAL"
-          players={state.players}
-          getValue={(p) => calcYahtzeeTotal(state.scores[p.id])}
-          bold
-          color={colors.accent}
-        />
+        <TotalRow label="TOTAL" players={state.players} getValue={(p) => calcYahtzeeTotal(state.scores[p.id])} grand />
 
         {allFinished && (
-          <View style={styles.finishedBanner}>
-            <Text style={styles.finishedText}>Partie terminée ! 🎉</Text>
-            <Button label="Retour à l'accueil" onPress={() => navigation.navigate('Home')} variant="ghost" size="sm" style={{ marginTop: spacing.sm }} />
+          <View style={[styles.finishedBanner, shadow.sm]}>
+            <Text style={styles.finishedText}>Partie terminée !</Text>
+            <Button label="Retour à l'accueil" onPress={() => navigation.navigate('Home')} variant="secondary" size="sm" style={{ marginTop: spacing.sm }} />
           </View>
         )}
       </ScrollView>
@@ -232,31 +190,25 @@ export function YahtzeeScreen() {
       {/* Edit modal */}
       <Modal visible={editCell !== null} transparent animationType="fade" onRequestClose={() => setEditCell(null)}>
         <View style={styles.editOverlay}>
-          <View style={styles.editSheet}>
+          <View style={[styles.editSheet, shadow.md]}>
             {editCell && (
               <>
-                <Text style={styles.editTitle}>
-                  {CATEGORY_LABELS[editCell.cat]}
-                </Text>
-                <Text style={styles.editSubtitle}>
-                  {state.players.find((p) => p.id === editCell.playerId)?.name}
-                </Text>
-                {FIXED_SCORES[editCell.cat] !== undefined && (
-                  <Text style={styles.editHint}>Score fixe si réussi: {FIXED_SCORES[editCell.cat]} pts</Text>
-                )}
+                <Text style={styles.editCat}>{CATEGORY_LABELS[editCell.cat]}</Text>
+                <Text style={styles.editPlayer}>{state.players.find((p) => p.id === editCell.playerId)?.name}</Text>
                 <TextInput
                   style={styles.editInput}
                   value={editValue}
                   onChangeText={setEditValue}
                   keyboardType="number-pad"
                   autoFocus
-                  placeholder="Score (vide pour effacer)"
+                  placeholder="Score"
                   placeholderTextColor={colors.textMuted}
                   onSubmitEditing={commitEdit}
                   returnKeyType="done"
                 />
+                <Text style={styles.editHint}>Laisser vide pour effacer</Text>
                 <View style={styles.editButtons}>
-                  <Button label="Annuler" onPress={() => setEditCell(null)} variant="ghost" style={{ flex: 1 }} />
+                  <Button label="Annuler" onPress={() => setEditCell(null)} variant="secondary" style={{ flex: 1 }} />
                   <Button label="Valider" onPress={commitEdit} style={{ flex: 1 }} />
                 </View>
               </>
@@ -265,21 +217,17 @@ export function YahtzeeScreen() {
         </View>
       </Modal>
 
-      {/* Scoreboard modal */}
-      <ScoreboardModal
-        visible={showScoreboard}
-        onClose={() => setShowScoreboard(false)}
-        state={state}
-      />
+      {/* Scoreboard */}
+      <ScoreboardModal visible={showScoreboard} onClose={() => setShowScoreboard(false)} state={state} />
     </SafeAreaView>
   );
 }
 
-function SectionHeader({ title, subtitle, color }: { title: string; subtitle?: string; color: string }) {
+function SectionHeader({ title, right }: { title: string; right?: string }) {
   return (
-    <View style={[styles.sectionHeader, { borderLeftColor: color }]}>
-      <Text style={[styles.sectionHeaderText, { color }]}>{title}</Text>
-      {subtitle && <Text style={styles.sectionHeaderSub}>{subtitle}</Text>}
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {right && <Text style={styles.sectionRight}>{right}</Text>}
     </View>
   );
 }
@@ -293,49 +241,46 @@ function CategoryRow({ cat, players, scores, onPress, onFixedScore, fixedScore }
   fixedScore?: number;
 }) {
   const isFixed = fixedScore !== undefined;
-
   return (
-    <View style={styles.categoryRow}>
-      <View style={styles.catLabelContainer}>
-        <Text style={styles.catLabel}>{CATEGORY_LABELS[cat]}</Text>
-        {isFixed && <Text style={styles.catHint}>{fixedScore} pts</Text>}
+    <View style={styles.catRow}>
+      <View style={styles.catCol}>
+        <Text style={styles.catName}>{CATEGORY_LABELS[cat]}</Text>
+        {isFixed && <Text style={styles.catFixed}>{fixedScore} pts</Text>}
       </View>
       {players.map((p, idx) => {
         const val = scores[p.id][cat];
         const color = getPlayerColor(idx);
-
         if (isFixed && onFixedScore) {
           const isSuccess = val === fixedScore;
           const isFail = val === -1;
           return (
-            <View key={p.id} style={[styles.scoreCell, styles.fixedCell]}>
+            <View key={p.id} style={[styles.scoreCol, styles.fixedCellRow]}>
               <TouchableOpacity
-                style={[styles.fixedBtn, isSuccess && { backgroundColor: colors.success }]}
+                style={[styles.fixedBtn, isSuccess && { backgroundColor: colors.success, borderColor: colors.success }]}
                 onPress={() => onFixedScore(p.id, cat, true)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.fixedBtnText, isSuccess && styles.fixedBtnTextActive]}>✓</Text>
+                <Text style={[styles.fixedBtnText, isSuccess && styles.fixedBtnActive]}>✓</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.fixedBtn, isFail && { backgroundColor: colors.accent }]}
+                style={[styles.fixedBtn, isFail && { backgroundColor: colors.danger, borderColor: colors.danger }]}
                 onPress={() => onFixedScore(p.id, cat, false)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.fixedBtnText, isFail && styles.fixedBtnTextActive]}>✗</Text>
+                <Text style={[styles.fixedBtnText, isFail && styles.fixedBtnActive]}>✗</Text>
               </TouchableOpacity>
             </View>
           );
         }
-
         return (
           <TouchableOpacity
             key={p.id}
-            style={[styles.scoreCell, val !== undefined && val >= 0 && { backgroundColor: color + '22' }]}
+            style={[styles.scoreCol, styles.scoreCell, val !== undefined && val >= 0 && { backgroundColor: color + '10' }]}
             onPress={() => onPress(p.id, cat)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.scoreCellText, val !== undefined && val >= 0 && { color }]}>
-              {val !== undefined ? String(val) : '—'}
+            <Text style={[styles.scoreCellText, val !== undefined && val >= 0 && { color, fontWeight: '600' }]}>
+              {val !== undefined && val >= 0 ? String(val) : '—'}
             </Text>
           </TouchableOpacity>
         );
@@ -344,23 +289,23 @@ function CategoryRow({ cat, players, scores, onPress, onFixedScore, fixedScore }
   );
 }
 
-function SubtotalRow({ label, players, getValue, bold, color }: {
+function TotalRow({ label, players, getValue, highlight, grand }: {
   label: string;
   players: { id: string; name: string }[];
   getValue: (p: { id: string; name: string }) => number;
-  bold?: boolean;
-  color?: string;
+  highlight?: boolean;
+  grand?: boolean;
 }) {
   return (
-    <View style={[styles.categoryRow, styles.subtotalRow]}>
-      <Text style={[styles.catLabel, bold && styles.catLabelBold, color ? { color } : {}]}>{label}</Text>
+    <View style={[styles.catRow, styles.totalRow, grand && styles.grandRow]}>
+      <Text style={[styles.catCol, styles.totalLabel, grand && styles.grandLabel]}>{label}</Text>
       {players.map((p, idx) => {
         const val = getValue(p);
-        const c = color ?? getPlayerColor(idx);
+        const color = grand ? colors.accent : highlight ? colors.success : getPlayerColor(idx);
         return (
-          <View key={p.id} style={styles.scoreCell}>
-            <Text style={[styles.scoreCellText, { color: c }, bold && styles.scoreBold]}>
-              {val}
+          <View key={p.id} style={styles.scoreCol}>
+            <Text style={[styles.totalValue, { color }, grand && { fontSize: 17 }]}>
+              {highlight && val === 0 ? '—' : String(val)}
             </Text>
           </View>
         );
@@ -369,11 +314,7 @@ function SubtotalRow({ label, players, getValue, bold, color }: {
   );
 }
 
-function ScoreboardModal({ visible, onClose, state }: {
-  visible: boolean;
-  onClose: () => void;
-  state: YahtzeeState;
-}) {
+function ScoreboardModal({ visible, onClose, state }: { visible: boolean; onClose: () => void; state: YahtzeeState }) {
   const sorted = [...state.players].sort(
     (a, b) => calcYahtzeeTotal(state.scores[b.id]) - calcYahtzeeTotal(state.scores[a.id])
   );
@@ -381,10 +322,10 @@ function ScoreboardModal({ visible, onClose, state }: {
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
-          <View style={styles.modalHeader}>
+          <View style={styles.modalHead}>
             <Text style={styles.modalTitle}>Classement</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={colors.text} />
+            <TouchableOpacity onPress={onClose} activeOpacity={0.7}>
+              <Ionicons name="close" size={22} color={colors.text} />
             </TouchableOpacity>
           </View>
           {sorted.map((p, i) => {
@@ -392,9 +333,10 @@ function ScoreboardModal({ visible, onClose, state }: {
             const color = getPlayerColor(idx);
             return (
               <View key={p.id} style={styles.rankRow}>
-                <Text style={styles.rankNum}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</Text>
-                <Text style={[styles.rankName, { color }]}>{p.name}</Text>
-                <Text style={styles.rankScore}>{calcYahtzeeTotal(state.scores[p.id])} pts</Text>
+                <Text style={styles.rankPos}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}</Text>
+                <View style={[styles.rankDot, { backgroundColor: color }]} />
+                <Text style={styles.rankName}>{p.name}</Text>
+                <Text style={[styles.rankScore, { color }]}>{calcYahtzeeTotal(state.scores[p.id])} pts</Text>
               </View>
             );
           })}
@@ -410,95 +352,109 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center',
     padding: spacing.sm, paddingHorizontal: spacing.md,
     borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   headerTitle: { ...typography.h3, color: colors.text, flex: 1, textAlign: 'center' },
-  headerActions: { flexDirection: 'row', gap: spacing.xs },
-  iconBtn: { padding: spacing.xs },
+  headerRight: { flexDirection: 'row', gap: spacing.xs },
+  iconBtn: {
+    width: 36, height: 36, borderRadius: radius.sm,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
+  },
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: spacing.xxl },
   tableHeader: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.card,
-    padding: spacing.sm, paddingHorizontal: spacing.md,
-  },
-  playerCol: { flex: 1, alignItems: 'center' },
-  playerColName: { fontSize: 13, fontWeight: '700' },
-  sectionHeader: {
     backgroundColor: colors.surface,
     padding: spacing.sm, paddingHorizontal: spacing.md,
-    marginTop: spacing.xs, borderLeftWidth: 3,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  sectionHeaderText: { ...typography.bodyBold },
-  sectionHeaderSub: { ...typography.tiny, color: colors.textMuted },
-  categoryRow: {
-    flexDirection: 'row', alignItems: 'center',
     borderBottomWidth: 1, borderBottomColor: colors.border,
-    minHeight: 44,
+    gap: 2,
   },
-  subtotalRow: { backgroundColor: colors.surface },
-  catLabelContainer: { flex: 2, paddingHorizontal: spacing.md },
-  catLabel: { ...typography.small, color: colors.text, flex: 2, paddingHorizontal: spacing.md },
-  catLabelHeader: { color: colors.textMuted },
-  catLabelBold: { fontWeight: '700' },
-  catHint: { ...typography.tiny, color: colors.textMuted },
-  scoreCell: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    minHeight: 44, borderLeftWidth: 1, borderLeftColor: colors.border,
+  playerInitial: {
+    width: 28, height: 28, borderRadius: 14,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 1.5,
+    marginBottom: 3,
   },
-  scoreCellText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
-  scoreBold: { fontWeight: '700', fontSize: 16 },
-  fixedCell: { flexDirection: 'row', gap: 4, paddingHorizontal: 4 },
-  fixedBtn: {
-    flex: 1, height: 36, borderRadius: radius.sm,
-    alignItems: 'center', justifyContent: 'center',
+  playerInitialText: { fontSize: 12, fontWeight: '700' },
+  playerColName: { fontSize: 11, fontWeight: '600', textAlign: 'center' },
+  sectionHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: colors.card,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.xs + 2,
+    borderBottomWidth: 1, borderTopWidth: 1, borderColor: colors.border,
   },
-  fixedBtnText: { fontSize: 16, color: colors.textMuted },
-  fixedBtnTextActive: { color: colors.white, fontWeight: '700' },
+  sectionTitle: { ...typography.label, color: colors.textSecondary },
+  sectionRight: { ...typography.tiny, color: colors.textMuted },
+  catRow: {
+    flexDirection: 'row', alignItems: 'stretch',
+    borderBottomWidth: 1, borderBottomColor: colors.border, minHeight: 46,
+  },
+  catCol: {
+    flex: 2, paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+  },
+  catName: { ...typography.small, color: colors.text },
+  catFixed: { ...typography.tiny, color: colors.textMuted, marginTop: 1 },
+  scoreCol: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    borderLeftWidth: 1, borderLeftColor: colors.border,
+  },
+  scoreCell: { minHeight: 46 },
+  scoreCellText: { ...typography.body, color: colors.textMuted },
+  thLabel: { ...typography.label, color: colors.textMuted, paddingHorizontal: spacing.md },
+  fixedCellRow: { flexDirection: 'row', gap: 3, paddingHorizontal: 4 },
+  fixedBtn: {
+    flex: 1, height: 34, borderRadius: radius.sm,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card,
+  },
+  fixedBtnText: { fontSize: 15, color: colors.textMuted },
+  fixedBtnActive: { color: colors.white, fontWeight: '700' },
+  totalRow: { backgroundColor: colors.card },
+  grandRow: { backgroundColor: colors.accentLight, borderTopWidth: 2, borderTopColor: colors.accent + '30' },
+  totalLabel: { ...typography.smallBold, color: colors.textSecondary },
+  grandLabel: { ...typography.bodyBold, color: colors.accent },
+  totalValue: { ...typography.bodyBold, textAlign: 'center' },
   finishedBanner: {
     margin: spacing.md, backgroundColor: colors.surface,
     borderRadius: radius.md, padding: spacing.lg, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
   },
-  finishedText: { ...typography.h2, color: colors.gold },
-  editOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center', alignItems: 'center',
-  },
+  finishedText: { ...typography.h3, color: colors.text },
+  editOverlay: { flex: 1, backgroundColor: 'rgba(26,25,23,0.3)', justifyContent: 'center', alignItems: 'center' },
   editSheet: {
-    backgroundColor: colors.surface,
-    borderRadius: radius.lg, padding: spacing.lg,
-    width: 300,
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: spacing.lg, width: 300, borderWidth: 1, borderColor: colors.border,
   },
-  editTitle: { ...typography.h2, color: colors.text, marginBottom: 4 },
-  editSubtitle: { ...typography.body, color: colors.textSecondary, marginBottom: 4 },
-  editHint: { ...typography.small, color: colors.gold, marginBottom: spacing.md },
+  editCat: { ...typography.h3, color: colors.text, marginBottom: 2 },
+  editPlayer: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.md },
   editInput: {
     backgroundColor: colors.card, borderRadius: radius.md,
-    padding: spacing.md, color: colors.text, fontSize: 20,
-    textAlign: 'center', fontWeight: '700', marginBottom: spacing.md,
+    padding: spacing.md, color: colors.text, fontSize: 24,
+    textAlign: 'center', fontWeight: '700', marginBottom: spacing.xs,
+    borderWidth: 1, borderColor: colors.border,
   },
+  editHint: { ...typography.tiny, color: colors.textMuted, textAlign: 'center', marginBottom: spacing.md },
   editButtons: { flexDirection: 'row', gap: spacing.sm },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
-  },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(26,25,23,0.3)', justifyContent: 'flex-end' },
   modalSheet: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: radius.lg, borderTopRightRadius: radius.lg,
+    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
     padding: spacing.lg, paddingBottom: spacing.xxl,
+    borderTopWidth: 1, borderColor: colors.border,
   },
-  modalHeader: {
+  modalHead: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: spacing.lg,
   },
   modalTitle: { ...typography.h2, color: colors.text },
   rankRow: {
     flexDirection: 'row', alignItems: 'center',
-    padding: spacing.md, borderRadius: radius.md,
-    marginBottom: spacing.xs, gap: spacing.md,
-    backgroundColor: colors.card,
+    paddingVertical: spacing.sm, gap: spacing.sm,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  rankNum: { fontSize: 20, width: 36 },
-  rankName: { flex: 1, ...typography.bodyBold },
-  rankScore: { ...typography.h3, color: colors.gold },
+  rankPos: { fontSize: 20, width: 32 },
+  rankDot: { width: 8, height: 8, borderRadius: 4 },
+  rankName: { flex: 1, ...typography.bodyBold, color: colors.text },
+  rankScore: { ...typography.bodyBold },
 });

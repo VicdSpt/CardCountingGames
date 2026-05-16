@@ -1,6 +1,6 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, TextStyle, ActivityIndicator } from 'react-native';
-import { colors, radius, spacing, typography } from '../theme';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, ActivityIndicator } from 'react-native';
+import { colors, radius, spacing } from '../theme';
 
 interface ButtonProps {
   label: string;
@@ -13,18 +13,16 @@ interface ButtonProps {
 }
 
 export function Button({ label, onPress, variant = 'primary', size = 'md', disabled, loading, style }: ButtonProps) {
-  const bg = {
-    primary: colors.accent,
-    secondary: colors.card,
-    danger: '#c0392b',
-    ghost: 'transparent',
+  const configs = {
+    primary:   { bg: colors.accent,   text: colors.white,  border: colors.accent },
+    secondary: { bg: colors.card,     text: colors.text,   border: colors.border },
+    danger:    { bg: colors.danger,   text: colors.white,  border: colors.danger },
+    ghost:     { bg: 'transparent',   text: colors.accent, border: colors.border },
   }[variant];
 
-  const textColor = variant === 'ghost' ? colors.accent : colors.white;
-
-  const padV = { sm: spacing.xs, md: spacing.sm + 2, lg: spacing.md }[size];
-  const padH = { sm: spacing.sm, md: spacing.md, lg: spacing.lg }[size];
-  const fontSize = { sm: 13, md: 15, lg: 17 }[size];
+  const padV = { sm: 8, md: 13, lg: 16 }[size];
+  const padH = { sm: 12, md: 20, lg: 28 }[size];
+  const fontSize = { sm: 13, md: 15, lg: 16 }[size];
 
   return (
     <TouchableOpacity
@@ -32,17 +30,22 @@ export function Button({ label, onPress, variant = 'primary', size = 'md', disab
       disabled={disabled || loading}
       style={[
         styles.base,
-        { backgroundColor: bg, paddingVertical: padV, paddingHorizontal: padH, borderRadius: radius.md },
-        variant === 'ghost' && styles.ghost,
+        {
+          backgroundColor: configs.bg,
+          borderColor: configs.border,
+          paddingVertical: padV,
+          paddingHorizontal: padH,
+          borderRadius: radius.md,
+        },
         (disabled || loading) && styles.disabled,
         style,
       ]}
-      activeOpacity={0.75}
+      activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={textColor} size="small" />
+        <ActivityIndicator color={configs.text} size="small" />
       ) : (
-        <Text style={[styles.text, { color: textColor, fontSize }]}>{label}</Text>
+        <Text style={[styles.text, { color: configs.text, fontSize }]}>{label}</Text>
       )}
     </TouchableOpacity>
   );
@@ -52,15 +55,8 @@ const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  ghost: {
     borderWidth: 1,
-    borderColor: colors.accent,
   },
-  disabled: {
-    opacity: 0.4,
-  },
-  text: {
-    fontWeight: '600',
-  },
+  disabled: { opacity: 0.4 },
+  text: { fontWeight: '600' },
 });
