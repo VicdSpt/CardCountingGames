@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  SafeAreaView, StatusBar, Alert,
+  SafeAreaView, StatusBar, Platform, Alert, Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ const GAMES: { type: GameType; name: string; description: string; icon: string; 
 export function HomeScreen() {
   const navigation = useNavigation<any>();
   const { savedGames, loadGames, deleteGame } = useGameStore();
+  const [pendingDelete, setPendingDelete] = useState<SavedGame | null>(null);
 
   useEffect(() => {
     loadGames();
@@ -40,14 +41,18 @@ export function HomeScreen() {
   };
 
   const confirmDelete = (game: SavedGame) => {
-    Alert.alert(
-      'Supprimer la partie ?',
-      `Partie de ${game.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'} avec ${game.players.map((p) => p.name).join(', ')}`,
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Supprimer', style: 'destructive', onPress: () => deleteGame(game.id) },
-      ]
-    );
+    if (Platform.OS === 'web') {
+      setPendingDelete(game);
+    } else {
+      Alert.alert(
+        'Supprimer la partie ?',
+        `${game.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'} — ${game.players.map((p) => p.name).join(', ')}`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          { text: 'Supprimer', style: 'destructive', onPress: () => deleteGame(game.id) },
+        ]
+      );
+    }
   };
 
   const startNewGame = (type: GameType) => {
@@ -57,6 +62,30 @@ export function HomeScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+
+      {/* Confirmation suppression (web) */}
+      <Modal visible={pendingDelete !== null} transparent animationType="fade" onRequestClose={() => setPendingDelete(null)}>
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmSheet}>
+            <Text style={styles.confirmTitle}>Supprimer la partie ?</Text>
+            <Text style={styles.confirmBody}>
+              {pendingDelete?.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'}
+              {' — '}{pendingDelete?.players.map((p) => p.name).join(', ')}
+            </Text>
+            <View style={styles.confirmButtons}>
+              <TouchableOpacity style={styles.confirmCancel} onPress={() => setPendingDelete(null)}>
+                <Text style={styles.confirmCancelText}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmDelete}
+                onPress={() => { deleteGame(pendingDelete!.id); setPendingDelete(null); }}
+              >
+                <Text style={styles.confirmDeleteText}>Supprimer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
@@ -166,4 +195,25 @@ const styles = StyleSheet.create({
   savedPlayers: { ...typography.small, color: colors.textSecondary, marginTop: 2 },
   savedDate: { ...typography.small, color: colors.textMuted },
   deleteBtn: { padding: spacing.md },
+  confirmOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  confirmSheet: {
+    backgroundColor: colors.surface, borderRadius: radius.lg,
+    padding: spacing.lg, width: 300,
+  },
+  confirmTitle: { ...typography.h3, color: colors.text, marginBottom: spacing.xs },
+  confirmBody: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.lg },
+  confirmButtons: { flexDirection: 'row', gap: spacing.sm },
+  confirmCancel: {
+    flex: 1, padding: spacing.sm, borderRadius: radius.md,
+    backgroundColor: colors.card, alignItems: 'center',
+  },
+  confirmCancelText: { ...typography.bodyBold, color: colors.text },
+  confirmDelete: {
+    flex: 1, padding: spacing.sm, borderRadius: radius.md,
+    backgroundColor: '#c0392b', alignItems: 'center',
+  },
+  confirmDeleteText: { ...typography.bodyBold, color: colors.white },
 });
