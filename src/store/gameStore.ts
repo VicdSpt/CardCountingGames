@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type GameType = 'rikiki' | 'yahtzee';
+export type GameType = 'rikiki' | 'yahtzee' | '5000';
 
 export interface Player {
   id: string;

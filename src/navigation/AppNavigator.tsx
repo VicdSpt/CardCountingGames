@@ -7,6 +7,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { SetupGameScreen } from '../screens/SetupGameScreen';
 import { RikikiScreen } from '../screens/RikikiScreen';
 import { YahtzeeScreen } from '../screens/YahtzeeScreen';
+import { Game5000Screen } from '../screens/Game5000Screen';
 
 const Stack = createNativeStackNavigator();
 
@@ -19,6 +20,7 @@ export function AppNavigator() {
           <Stack.Screen name="SetupGame" component={SetupGameScreen} />
           <Stack.Screen name="Rikiki" component={RikikiScreen} />
           <Stack.Screen name="Yahtzee" component={YahtzeeScreen} />
+          <Stack.Screen name="Game5000" component={Game5000Screen} />
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>
@@ -26,5 +28,5 @@ export function AppNavigator() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#1a1a2e' },
+  root: { flex: 1, backgroundColor: '#F8F6F1' },
 });

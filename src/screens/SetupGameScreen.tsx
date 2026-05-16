@@ -10,6 +10,7 @@ import { colors, spacing, radius, typography, shadow } from '../theme';
 import { Button } from '../components/Button';
 import { GameType, Player } from '../store/gameStore';
 import { getPlayerColor } from '../components/PlayerBadge';
+import { Game5000Config, DEFAULT_CONFIG } from '../games/game5000/types';
 
 function generateId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -26,6 +27,7 @@ export function SetupGameScreen() {
   ]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [config5000, setConfig5000] = useState<Game5000Config>(DEFAULT_CONFIG);
 
   const addPlayer = () => {
     if (players.length >= 8) return;
@@ -50,10 +52,12 @@ export function SetupGameScreen() {
   };
 
   const startGame = () => {
-    navigation.replace(gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee', {
+    const screen = gameType === 'rikiki' ? 'Rikiki' : gameType === 'yahtzee' ? 'Yahtzee' : 'Game5000';
+    navigation.replace(screen, {
       gameId: generateId(),
       players,
       isNew: true,
+      ...(gameType === '5000' ? { config: config5000 } : {}),
     });
   };
 
@@ -130,6 +134,58 @@ export function SetupGameScreen() {
           )}
         </View>
 
+        {/* Options 5000 */}
+        {gameType === '5000' && (
+          <View style={styles.optionsSection}>
+            <Text style={styles.sectionLabel}>Règles</Text>
+
+            <OptionRow label="Seuil d'ouverture">
+              {[0, 250, 500].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  style={[styles.optionBtn, config5000.openingThreshold === v && styles.optionBtnActive]}
+                  onPress={() => setConfig5000((c) => ({ ...c, openingThreshold: v }))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.optionBtnText, config5000.openingThreshold === v && styles.optionBtnTextActive]}>
+                    {v === 0 ? 'Aucun' : `${v} pts`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </OptionRow>
+
+            <OptionRow label="Suite (1-2-3-4-5 / 2-3-4-5-6)">
+              {[0, 1000, 2000].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  style={[styles.optionBtn, config5000.suiteScore === v && styles.optionBtnActive]}
+                  onPress={() => setConfig5000((c) => ({ ...c, suiteScore: v }))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.optionBtnText, config5000.suiteScore === v && styles.optionBtnTextActive]}>
+                    {v === 0 ? 'Désactivé' : `${v} pts`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </OptionRow>
+
+            <OptionRow label="Objectif">
+              {[3000, 5000, 10000].map((v) => (
+                <TouchableOpacity
+                  key={v}
+                  style={[styles.optionBtn, config5000.targetScore === v && styles.optionBtnActive]}
+                  onPress={() => setConfig5000((c) => ({ ...c, targetScore: v }))}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.optionBtnText, config5000.targetScore === v && styles.optionBtnTextActive]}>
+                    {v.toLocaleString()}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </OptionRow>
+          </View>
+        )}
+
         <View style={styles.footer}>
           <Button label="Commencer la partie" onPress={startGame} size="lg" style={{ flex: 1 }} />
         </View>
@@ -137,6 +193,23 @@ export function SetupGameScreen() {
     </SafeAreaView>
   );
 }
+
+function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <View style={optStyles.row}>
+      <Text style={optStyles.label}>{label}</Text>
+      <View style={optStyles.buttons}>{children}</View>
+    </View>
+  );
+}
+
+const optStyles = StyleSheet.create({
+  row: {
+    marginBottom: spacing.sm,
+  },
+  label: { ...typography.small, color: colors.textSecondary, marginBottom: spacing.xs },
+  buttons: { flexDirection: 'row', gap: spacing.xs },
+});
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
@@ -195,4 +268,16 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: colors.border,
     flexDirection: 'row',
   },
+  optionsSection: {
+    padding: spacing.md,
+    borderTopWidth: 1, borderTopColor: colors.border,
+  },
+  optionBtn: {
+    paddingHorizontal: spacing.sm + 2, paddingVertical: 7,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  optionBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  optionBtnText: { ...typography.smallBold, color: colors.text },
+  optionBtnTextActive: { color: colors.white },
 });

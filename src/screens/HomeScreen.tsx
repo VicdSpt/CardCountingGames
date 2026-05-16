@@ -21,6 +21,12 @@ const GAMES: { type: GameType; name: string; description: string; icon: keyof ty
     description: 'Dés · Catégories · Bonus',
     icon: 'dice-outline',
   },
+  {
+    type: '5000',
+    name: '5000',
+    description: '5 dés · Brelans · Premier à 5 000 pts',
+    icon: 'ellipse-outline',
+  },
 ];
 
 export function HomeScreen() {
@@ -33,7 +39,8 @@ export function HomeScreen() {
   }, []);
 
   const resumeGame = (game: SavedGame) => {
-    navigation.navigate(game.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee', { gameId: game.id });
+    const screen = game.gameType === 'rikiki' ? 'Rikiki' : game.gameType === 'yahtzee' ? 'Yahtzee' : 'Game5000';
+    navigation.navigate(screen, { gameId: game.id });
   };
 
   const confirmDelete = (game: SavedGame) => {
@@ -42,7 +49,7 @@ export function HomeScreen() {
     } else {
       Alert.alert(
         'Supprimer la partie ?',
-        `${game.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'} — ${game.players.map((p) => p.name).join(', ')}`,
+        `${game.gameType === 'rikiki' ? 'Rikiki' : game.gameType === 'yahtzee' ? 'Yahtzee' : '5000'} — ${game.players.map((p) => p.name).join(', ')}`,
         [
           { text: 'Annuler', style: 'cancel' },
           { text: 'Supprimer', style: 'destructive', onPress: () => deleteGame(game.id) },
@@ -61,7 +68,7 @@ export function HomeScreen() {
           <View style={[styles.confirmSheet, shadow.md]}>
             <Text style={styles.confirmTitle}>Supprimer ?</Text>
             <Text style={styles.confirmBody}>
-              {pendingDelete?.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'}
+              {pendingDelete?.gameType === 'rikiki' ? 'Rikiki' : pendingDelete?.gameType === 'yahtzee' ? 'Yahtzee' : '5000'}
               {' · '}{pendingDelete?.players.map((p) => p.name).join(', ')}
             </Text>
             <View style={styles.confirmButtons}>
@@ -119,7 +126,7 @@ export function HomeScreen() {
                     <View style={styles.savedDot} />
                     <View style={styles.savedInfo}>
                       <Text style={styles.savedName}>
-                        {item.gameType === 'rikiki' ? 'Rikiki' : 'Yahtzee'}
+                        {item.gameType === 'rikiki' ? 'Rikiki' : item.gameType === 'yahtzee' ? 'Yahtzee' : '5000'}
                       </Text>
                       <Text style={styles.savedPlayers} numberOfLines={1}>
                         {item.players.map((p) => p.name).join(' · ')}
