@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app@latest . --template blank-typescript)",
+      "Read(//c/Users/victo/OneDrive/Bureau/**)",
+      "Bash(npx create-expo-app@latest CardGame --template blank-typescript)",
+      "Bash(npm init:*)",
+      "Bash(npx create-expo-app@latest --template blank-typescript --yes)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx expo:*)"
+    ]
+  }
+}
