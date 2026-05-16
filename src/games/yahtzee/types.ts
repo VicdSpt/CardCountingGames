@@ -55,7 +55,11 @@ export function calcYahtzeeBonus(scores: YahtzeeScores): number {
 }
 
 export function calcYahtzeeLowerTotal(scores: YahtzeeScores): number {
-  return LOWER_CATEGORIES.reduce((sum, cat) => sum + (scores[cat] ?? 0), 0);
+  // -1 means "failed" (crossed out), counts as 0
+  return LOWER_CATEGORIES.reduce((sum, cat) => {
+    const v = scores[cat] ?? 0;
+    return sum + (v < 0 ? 0 : v);
+  }, 0);
 }
 
 export function calcYahtzeeTotal(scores: YahtzeeScores): number {

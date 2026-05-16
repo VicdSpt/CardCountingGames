@@ -83,9 +83,27 @@ export function YahtzeeScreen() {
 
   const openEdit = (playerId: string, cat: YahtzeeCategory) => {
     if (!state) return;
+    // Fixed-score categories are handled inline, no modal needed
+    if (FIXED_SCORES[cat] !== undefined) return;
     const current = state.scores[playerId][cat];
-    setEditValue(current !== undefined ? String(current) : '');
+    setEditValue(current !== undefined && current >= 0 ? String(current) : '');
     setEditCell({ playerId, cat });
+  };
+
+  const setFixedScore = (playerId: string, cat: YahtzeeCategory, success: boolean) => {
+    updateState((s) => {
+      const fixed = FIXED_SCORES[cat]!;
+      const current = s.scores[playerId][cat];
+      // Toggle: if already set to same value, clear it
+      if (success && current === fixed) {
+        delete s.scores[playerId][cat];
+      } else if (!success && current === -1) {
+        delete s.scores[playerId][cat];
+      } else {
+        s.scores[playerId][cat] = success ? fixed : -1;
+      }
+      return s;
+    });
   };
 
   const commitEdit = () => {
@@ -93,7 +111,6 @@ export function YahtzeeScreen() {
     const { playerId, cat } = editCell;
     const numStr = editValue.trim();
     if (numStr === '') {
-      // clear the cell
       updateState((s) => {
         delete s.scores[playerId][cat];
         return s;
@@ -113,8 +130,7 @@ export function YahtzeeScreen() {
   };
 
   const isFinished = (scores: YahtzeeScores): boolean => {
-    const all = [...UPPER_CATEGORIES, ...LOWER_CATEGORIES];
-    return all.every((cat) => scores[cat] !== undefined);
+    return [...UPPER_CATEGORIES, ...LOWER_CATEGORIES].every((cat) => scores[cat] !== undefined);
   };
 
   if (!state) {
@@ -191,6 +207,7 @@ export function YahtzeeScreen() {
             players={state.players}
             scores={state.scores}
             onPress={openEdit}
+            onFixedScore={setFixedScore}
             fixedScore={FIXED_SCORES[cat]}
           />
         ))}
@@ -267,30 +284,57 @@ function SectionHeader({ title, subtitle, color }: { title: string; subtitle?: s
   );
 }
 
-function CategoryRow({ cat, players, scores, onPress, fixedScore }: {
+function CategoryRow({ cat, players, scores, onPress, onFixedScore, fixedScore }: {
   cat: YahtzeeCategory;
   players: { id: string; name: string }[];
   scores: Record<string, YahtzeeScores>;
   onPress: (playerId: string, cat: YahtzeeCategory) => void;
+  onFixedScore?: (playerId: string, cat: YahtzeeCategory, success: boolean) => void;
   fixedScore?: number;
 }) {
+  const isFixed = fixedScore !== undefined;
+
   return (
     <View style={styles.categoryRow}>
       <View style={styles.catLabelContainer}>
         <Text style={styles.catLabel}>{CATEGORY_LABELS[cat]}</Text>
-        {fixedScore !== undefined && <Text style={styles.catHint}>{fixedScore}pts</Text>}
+        {isFixed && <Text style={styles.catHint}>{fixedScore} pts</Text>}
       </View>
       {players.map((p, idx) => {
         const val = scores[p.id][cat];
         const color = getPlayerColor(idx);
+
+        if (isFixed && onFixedScore) {
+          const isSuccess = val === fixedScore;
+          const isFail = val === -1;
+          return (
+            <View key={p.id} style={[styles.scoreCell, styles.fixedCell]}>
+              <TouchableOpacity
+                style={[styles.fixedBtn, isSuccess && { backgroundColor: colors.success }]}
+                onPress={() => onFixedScore(p.id, cat, true)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.fixedBtnText, isSuccess && styles.fixedBtnTextActive]}>✓</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.fixedBtn, isFail && { backgroundColor: colors.accent }]}
+                onPress={() => onFixedScore(p.id, cat, false)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.fixedBtnText, isFail && styles.fixedBtnTextActive]}>✗</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+
         return (
           <TouchableOpacity
             key={p.id}
-            style={[styles.scoreCell, val !== undefined && { backgroundColor: color + '22' }]}
+            style={[styles.scoreCell, val !== undefined && val >= 0 && { backgroundColor: color + '22' }]}
             onPress={() => onPress(p.id, cat)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.scoreCellText, val !== undefined && { color }]}>
+            <Text style={[styles.scoreCellText, val !== undefined && val >= 0 && { color }]}>
               {val !== undefined ? String(val) : '—'}
             </Text>
           </TouchableOpacity>
@@ -404,6 +448,14 @@ const styles = StyleSheet.create({
   },
   scoreCellText: { ...typography.body, color: colors.textMuted, textAlign: 'center' },
   scoreBold: { fontWeight: '700', fontSize: 16 },
+  fixedCell: { flexDirection: 'row', gap: 4, paddingHorizontal: 4 },
+  fixedBtn: {
+    flex: 1, height: 36, borderRadius: radius.sm,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.card,
+  },
+  fixedBtnText: { fontSize: 16, color: colors.textMuted },
+  fixedBtnTextActive: { color: colors.white, fontWeight: '700' },
   finishedBanner: {
     margin: spacing.md, backgroundColor: colors.surface,
     borderRadius: radius.md, padding: spacing.lg, alignItems: 'center',
